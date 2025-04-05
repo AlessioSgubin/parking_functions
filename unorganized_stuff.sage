@@ -60,7 +60,7 @@ def kParkingFunctions(n,k):                 # kPARKINGFUNCTIONS: computes the se
     print("\nCompleted computation!\n")
     return parking_functions
 
-def nkParkingFunctions(n,k):
+def nkParkingFunctions(n,k):                # nkPARKINGFUNCTIONS: computes the set of all (n,k)-parking functions
     parking_functions = []
     counter = 0
     # Compute total number of Dyck paths
