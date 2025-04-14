@@ -52,7 +52,23 @@ class ParkFunc():
         r'''
             Returns the main diagonal shape in the right format.
         '''
-        return [ceil(m - self.ratio*i) for i in range(self.N)]  # type: ignore
+        return [ceil(self.M - i/self.ratio) for i in range(self.N)]  # type: ignore
+
+    def __eq__(self,other):
+        r'''
+            Redefines equality between parking functions not to look at metadata.
+        '''
+        if self.path == other.path and self.label == other.label and self.N == other.N and self.M == other.M:
+            return True
+        else:
+            return False
+
+    def label_word(self):
+        return self.label
+
+    def area_word(self):
+        diag = self.__main_diag__()
+        return [self.path[i] - diag[i] for i in range(self.N)]
 
     def area(self):
         r'''
@@ -85,7 +101,7 @@ class ParkFunc():
 
         tdinv = 0
         row_cresc = [self.label.index(h+1) for h in range(self.N)]
-        for i in range(n):
+        for i in range(self.N):
             rank_c = self.N*self.path[row_cresc[i]] + (self.N*k+1)*row_cresc[i]
             for j in range(self.N-i-1):
                 rank_d = self.N*self.path[row_cresc[i+j+1]] + (self.N*k+1)*row_cresc[i+j+1]
@@ -110,12 +126,12 @@ class ParkFunc():
     def dinv(self):                         # DINV: computes the dinv of a parking function
         return self.pdinv() + self.tdinv() - self.maxtdinv()
 
-    def delay(self,contr=False):            # DELAY: computes the delay of a parking function
+    def pmaj(self, infos=False):            # PMAJ: computes the pmak of a parking function
         if self.specific_opt[0] != 'k-TYPE':
             raise TypeError('The algorithm does not work with this shape...')
         k = self.specific_opt[1]
         
-        delay = 0
+        pmaj = 0
         plus = 0
         current = self.N+1
         reading_word = []
@@ -132,17 +148,17 @@ class ParkFunc():
             else:                               # Continuing current ascending chain
                 current = max([w for w in buffer if w < current])
             
-            if current not in reading_word:     # Adding delay if needed...
-                delay += plus
+            if current not in reading_word:     # Adding pmaj if needed...
+                pmaj += plus
                 contributes = contributes + [[current,plus]]
             buffer.remove(current)                 # Removing one copy of current from buffer
 
             # writing down the new letter in reading word
             reading_word = reading_word + [current]
-        if contr:
-            return [delay,contributes,reading_word]
+        if infos:
+            return [pmaj,contributes,reading_word]
         else:
-            return delay
+            return pmaj
 
     def path_word(self):
         if self.specific_opt[0] != 'k-TYPE':
@@ -154,8 +170,10 @@ class ParkFunc():
         path_word = [self.label[path_order[i]] for i in range(self.N)]
         return path_word
 
-    def to_area_pmaj(self,infos = False):                # PSI: this is the bijection
-        # This function tests the bijection between (dinv,area) -> (area,delay)
+    def to_area_pmaj(self,infos = False):   # TO_AREA_PMAJ: this is the Generalized Loehr-Remmel map
+        r'''
+            This function returns the image of the parking function through the generalized Loehr-Remmel map.
+        '''
         if self.specific_opt[0] != 'k-TYPE':
             raise TypeError('The algorithm does not work with this shape...')
         k = self.specific_opt[1]
@@ -220,11 +238,108 @@ class ParkFunc():
         else:
             return [ParkFunc(self.N, self.M, w_area=area_word, w_label=label_word, specific_opt=self.specific_opt), not_tdinv, not_dinvcorr]
 
+    def to_dinv_area(self,infos = False):   # TO_DINV_AREA: this is the Generalized Loehr-Remmel inverse
+        r'''
+            This function returns the image through the generalized Loehr-Remmel inverse.
+        '''
+        if self.specific_opt[0] != 'k-TYPE':
+            raise TypeError('The algorithm does not work with this shape...')
+        k = self.specific_opt[1]
+
+        #self.draw()
+
+        ### Compute the pmaj contributes of each label
+        [pmaj, contributes, reading_word] = self.pmaj(infos = True)
+        lab_ord = [v[0] for v in contributes]       # Ordered list of the inserted labels
+        area = [v[1] for v in contributes]          # Ordered list of final area contributes of each label
+        #print("Label order {}".format(lab_ord))
+        #print("Area {}".format(area))
+        ### Compute the area contributes of each label
+        #print("Path {}".format(self.path))
+        codinv_dict = {self.label[i]:(self.M - self.path[i]) for i in range(self.N)}
+        dinv = [k*i - codinv_dict[lab_ord[i]] for i in range(self.N)]
+        #print("Dinv {}".format(dinv))
+
+        ### Build up the path step by step
+        # First step
+        m = 1
+        label = [lab_ord[0]]
+        path = [k]
+        # Consecutive steps
+        for j in range(self.N-1):
+            if infos:
+                print("\nDIMENSION {} PARTIAL PATH {} PARTIAL LABEL {}".format(j,path,label))
+            j += 1
+            check = False
+            #print([(m-(pos+1))*k + area[j] for pos in range(m-1)])
+            tries = [pos+1 for pos in range(m-1) if (path[pos]+k >= (m-(pos+1))*k + area[j]) and (path[pos+1] <= (m-(pos+1))*k + area[j])] + [m]
+            if area[j] == 0:
+                tries = [0] + tries
+            ind = 0
+            if infos:
+                print("POSITIONS TO TRY {}".format(tries))
+            while ind < len(tries) and check == False:
+                temp_path1 = [path[i]+k for i in range(tries[ind])]                     # Before new step
+                temp_path3 = [path[tries[ind]+i] for i in range(m-tries[ind])]        # After new step
+                #print([tries[ind]+i for i in range(m-tries[ind])])        # After new step
+                temp_path = temp_path1 + [(m+1-tries[ind])*k + area[j]] + temp_path3    # Provisional path
+                
+                temp_label1 = [label[i] for i in range(tries[ind])]                     # Before new label
+                temp_label3 = [label[tries[ind]+i] for i in range(m-tries[ind])]      # After new label
+                temp_label = temp_label1 + [lab_ord[j]] + temp_label3                   # Provisional label
+                order = sorted(range(m+1), key = lambda i: temp_label[i])
+                norm_label = sorted(range(m+1), key = lambda i: order[i])
+                norm_label = [v+1 for v in norm_label]                                  # Normalized label
+                #print("Temp {} \t Norm {}".format(temp_label,norm_label))
+                if infos:
+                    print("First part {}".format(temp_path1))
+                    print("Second part {}".format((m+1-tries[ind])*k + area[j]))
+                    print("Third part {}".format(temp_path3))
+                #print("Trying label {}\t and path {}".format(norm_label,temp_path))
+                temp = ParkFunc(m+1,k*(m+1), w_area=temp_path,w_label=norm_label)
+                dinv_val = temp.dinv()
+                if sum([dinv[i] for i in range(m+1)]) == dinv_val:
+                    #print("\tGOOD: We have dinv {}\t with dinv_val {}\t and sum {}".format(dinv, dinv_val,sum([dinv[i] for i in range(m+1)])))
+                    label = temp_label
+                    path = temp_path
+                    check = True
+                #else:
+                    #print("\tBAD: We have dinv {}\t with dinv_val {}\t and sum {}".format(dinv, dinv_val,sum([dinv[i] for i in range(m+1)])))
+                ind += 1
+            
+            if check == False:
+                raise ValueError("PROBLEMO!")
+            m+=1
+        
+        return ParkFunc(self.N, self.M, w_area=path, w_label=label)
 
 
                                 ##########################
                                 #   PARKFUNC UTILITIES   #
                                 ##########################
+
+    def draw(self, stats=True):
+        r'''
+            Function that draws the path
+        '''
+        #print('Path {} and {}'.format(self.path,self.M))
+        diag = self.__main_diag__()
+        for i in range(self.N):
+            i = self.N - i - 1
+            row1 = '   ' * (self.M - self.path[i])
+            row2 = ' {:>2}'.format(self.label[i])
+            row3 = '|##' * (self.path[i] - diag[i])
+            row4 = '|  ' * (diag[i]) + '|'
+
+            buff1 = '   ' * (self.M - self.path[i]+1)
+            buff2 = '+--' * (self.path[i]) + '+'
+            print('\t' + buff1 + buff2)
+            print('\t' + row1 + row2 + row3 + row4)
+        print('\t' + '   ' + '+--' * self.M + '+')
+        if stats:
+            print("Label word:\t{}".format(self.label_word()))
+            print("Area word:\t{}".format(self.area_word()))
+            print("Area: {}\t Dinv: {}\t Pmaj: {}".format(self.area(),self.dinv(),self.pmaj()))
 
 def kDyckPaths(n,k):                            # kDYCKPATHS: computes the set of all (nk,n)-Dyck paths
     possible_paths = [[1]]
@@ -294,7 +409,7 @@ def nkParkingFunctions(n,k, display=False):     # kPARKINGFUNCTIONS: computes th
                 temp2 = list(list(set_part)[j])
                 temp2.sort()
                 label = label + temp2
-            parking_functions.append(copy.copy([path,label]))
+            parking_functions.append(ParkFunc(n,n*k,w_area=path,w_label=label))
 
     return parking_functions
 
