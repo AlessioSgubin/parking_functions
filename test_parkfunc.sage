@@ -13,7 +13,7 @@ def visual_degree(p):
 # Parameters
 n = 6
 k = 2
-TRY = 2
+TRY = 3
 
 if TRY == 1:
     nkPF = nkParkingFunctions(n,k)
@@ -57,3 +57,9 @@ if TRY == 2:
         y = pf.pmaj()
         distr[x][y] += 1
     X = matrix_plot(matrix(distr))
+
+if TRY == 3:
+    pf = ParkFunc(7,21,func=[4,1,7,8,1,7,16])
+    pf.draw()
+    img = pf.to_dinv_area(infos=True)
+    img.draw()

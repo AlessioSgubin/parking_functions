@@ -293,20 +293,21 @@ class ParkFunc():
                 norm_label = sorted(range(m+1), key = lambda i: order[i])
                 norm_label = [v+1 for v in norm_label]                                  # Normalized label
                 #print("Temp {} \t Norm {}".format(temp_label,norm_label))
-                if infos:
-                    print("First part {}".format(temp_path1))
-                    print("Second part {}".format((m+1-tries[ind])*k + area[j]))
-                    print("Third part {}".format(temp_path3))
+                #if infos:
+                #    print("First part {}".format(temp_path1))
+                #    print("Second part {}".format((m+1-tries[ind])*k + area[j]))
+                #    print("Third part {}".format(temp_path3))
                 #print("Trying label {}\t and path {}".format(norm_label,temp_path))
                 temp = ParkFunc(m+1,k*(m+1), w_area=temp_path,w_label=norm_label)
-                if infos:
-                    temp.draw()
                 dinv_val = temp.dinv()
                 if sum([dinv[i] for i in range(m+1)]) == dinv_val:
                     #print("\tGOOD: We have dinv {}\t with dinv_val {}\t and sum {}".format(dinv, dinv_val,sum([dinv[i] for i in range(m+1)])))
                     label = temp_label
                     path = temp_path
                     check = True
+                    if infos:
+                        print("Labels: {}".format(temp_label))
+                        temp.draw()
                 #else:
                     #print("\tBAD: We have dinv {}\t with dinv_val {}\t and sum {}".format(dinv, dinv_val,sum([dinv[i] for i in range(m+1)])))
                 ind += 1
