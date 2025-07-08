@@ -33,6 +33,8 @@ class ParkFunc():
         if specific_opt == []:
             if m%n == 0:                # K TYPE
                 specific_opt = ['k-TYPE', floor(m/n)]   # type: ignore
+            else:
+                specific_opt = ['rational']
         self.specific_opt = specific_opt    # Specific options for the parking function
 
         # Compute the path and label information
@@ -136,7 +138,7 @@ class ParkFunc():
         plus = 0
         current = self.N+1
         reading_word = []
-        contributes = []
+        contributes = {}
         buffer = []
         for i in range(self.N*k):
             # Adding to buffer new labels with k multeplicity
@@ -151,7 +153,7 @@ class ParkFunc():
             
             if current not in reading_word:     # Adding pmaj if needed...
                 pmaj += plus
-                contributes = contributes + [[current,plus]]
+                contributes = contributes | {current:plus}
             buffer.remove(current)                 # Removing one copy of current from buffer
 
             # writing down the new letter in reading word
@@ -195,6 +197,9 @@ class ParkFunc():
                 rank_d = self.N*self.path[row_cresc[i+j+1]] + (self.N*k+1)*row_cresc[i+j+1]
                 if rank_c < rank_d and rank_d < rank_c + (self.N*k+1):
                     tdinv_pairs = tdinv_pairs + [(i+1,i+j+2)]
+        if infos:
+            print("INFORMATION on DINV SET")
+            print("\t The pairs of tdinv are: {}".format(tdinv_pairs))
 
         # Compute not_tdinv with previous cars
         not_tdinv = []
@@ -216,6 +221,10 @@ class ParkFunc():
                 for shift in range(k-1):
                     if rank_d < rank_c + self.N*(k-1) - self.N*shift and rank_c - self.N - self.N*shift < rank_d:
                         dinvcorr_pairs = dinvcorr_pairs + [(self.label[i],self.label[i+j+1])]
+        if infos:
+            dinvcorr_pairs.sort()
+            print("\t The pairs of dinvcorr are: {}".format(dinvcorr_pairs))
+
         # Compute not_dinvcorr with previous cars
         not_dinvcorr = []
         for i in range(self.N):
@@ -349,6 +358,18 @@ class ParkFunc():
             print(" Area word:\t{}".format(self.area_word()))
             print(" Area: {}\t Dinv: {}\t Pmaj: {}".format(self.area(),self.dinv(),self.pmaj()))
 
+    def labels_rises(self):                 # LABELS_RISES
+        r'''
+            Returns the labels corresponding to possible rises.
+        '''
+        return [self.label[i+1] for i in range(self.N-1) if self.path[i] == self.path[i+1]]
+
+    def labels_valleys(self):               # LABELS_VALLEYS
+        r'''
+            Returns the labels corresponding to possible rises.
+        '''
+        return [self.label[i+1] for i in range(self.N-1) if (self.path[i]+1 == self.path[i+1] and self.label[i] < self.label[i+1]) or (self.path[i]+1 > self.path[i+1])]
+
 def kDyckPaths(n,k):                            # kDYCKPATHS: computes the set of all (nk,n)-Dyck paths
     possible_paths = [[1]]
     for i in range(n*(k+1)-1):
@@ -437,3 +458,72 @@ def qt_Polynomial_area_pmaj(set_paths,ring):           # GEN_POLY: polynomial ge
     for path in set_paths:
         poly = poly + (q**path.area())*(t**path.pmaj())
     return poly
+
+
+def to_area_pmaj_RV(self,infos = False):   # TO_AREA_PMAJ: this is the Generalized Loehr-Remmel map
+    r'''
+        This function returns the image of the parking function through the generalized Loehr-Remmel map.
+    '''
+    if self.specific_opt[0] != 'k-TYPE':
+        raise TypeError('The algorithm does not work with this shape...')
+    k = self.specific_opt[1]
+    
+    ### Create the path word, ordered by rank
+    rank_list = [(self.N*k+1)*i + self.N*self.path[i] for i in range(self.N)]
+    path_order = sorted(range(len(rank_list)), key=lambda k: rank_list[k])      # Reading order of the columns
+    path_word = [self.label[path_order[i]] for i in range(self.N)]                      # Labels in order
+    #print("The path_word: {}".format(path_word))
+
+    ### Compute the not_tdinv
+    # Compute all pairs of cars making tdinv
+    tdinv_pairs = []            
+    row_cresc = [self.label.index(h+1) for h in range(self.N)]
+    for i in range(self.N):
+        rank_c = self.N*self.path[row_cresc[i]] + (self.N*k+1)*row_cresc[i]
+        for j in range(self.N-i-1):
+            rank_d = self.N*self.path[row_cresc[i+j+1]] + (self.N*k+1)*row_cresc[i+j+1]
+            if rank_c < rank_d and rank_d < rank_c + (self.N*k+1):
+                tdinv_pairs = tdinv_pairs + [(i+1,i+j+2)]
+
+    # Compute not_tdinv with previous cars
+    not_tdinv = []
+    for i in range(self.N):
+        temp = 0
+        for j in range(i):
+            if ((path_word[i],path_word[j]) not in tdinv_pairs) and ((path_word[j],path_word[i]) not in tdinv_pairs):
+                temp += 1
+        not_tdinv = not_tdinv + [temp]
+    #print("The not_tdinv: {}".format(not_tdinv))
+
+    ### Compute the not_dinvcorr
+    # Compute all pairs of cars making dinvcorr
+    dinvcorr_pairs = []
+    for i in range(self.N):
+        rank_c = self.N*self.path[i] + (self.N*k+1)*i
+        for j in range(self.N-i-1):
+            rank_d = self.N*self.path[i+j+1] + (self.N*k+1)*(i+j+1)
+            for shift in range(k-1):
+                if rank_d < rank_c + self.N*(k-1) - self.N*shift and rank_c - self.N - self.N*shift < rank_d:
+                    dinvcorr_pairs = dinvcorr_pairs + [(self.label[i],self.label[i+j+1])]
+    # Compute not_dinvcorr with previous cars
+    not_dinvcorr = []
+    for i in range(self.N):
+        temp = 0
+        for j in range(i):
+            temp += k - 1 - len([1 for (a,b) in dinvcorr_pairs if (a,b)==(path_word[i],path_word[j]) or (a,b)==(path_word[j],path_word[i])])
+        not_dinvcorr = not_dinvcorr + [temp]
+
+    ### Compute the not_dinv
+    not_dinv = [not_tdinv[i] + not_dinvcorr[i] for i in range(self.N)]
+    #print("The not_dinv: {}".format(not_dinv))
+
+    ### Compute the w_path of the image
+    not_dinv_sort = sorted(not_dinv, key=lambda k: k)
+    area_word = [self.N*k-not_dinv_sort[i] for i in range(self.N)]
+    
+    ### Compute the w_label of the image
+    label_word = [path_word[i] for i in sorted(range(self.N), key=lambda k: not_dinv[k]*self.N + path_word[k])]
+    if not infos:
+        return ParkFunc(self.N, self.M, w_area=area_word, w_label=label_word, specific_opt=self.specific_opt)
+    else:
+        return [ParkFunc(self.N, self.M, w_area=area_word, w_label=label_word, specific_opt=self.specific_opt), not_tdinv, not_dinvcorr]
