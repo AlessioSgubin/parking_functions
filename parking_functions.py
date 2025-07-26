@@ -1,6 +1,7 @@
 ### SageMath implementation of Parking Functions!
 import copy
 import sys
+import math
 
                                 ######################
                                 #   CLASS PARKFUNC   #
@@ -131,7 +132,8 @@ class ParkFunc():
 
     def pmaj(self, infos=False):            # PMAJ: computes the pmak of a parking function
         if self.specific_opt[0] != 'k-TYPE':
-            raise TypeError('The algorithm does not work with this shape...')
+            #raise Warning('The algorithm does not work with this shape...')
+            return self.test_pmaj()
         k = self.specific_opt[1]
         
         pmaj = 0
@@ -157,6 +159,44 @@ class ParkFunc():
             buffer.remove(current)                 # Removing one copy of current from buffer
 
             # writing down the new letter in reading word
+            reading_word = reading_word + [current]
+        if infos:
+            return [pmaj,contributes,reading_word]
+        else:
+            return pmaj
+
+    def test_pmaj(self, infos=False):
+        h = math.gcd(self.N, self.M)/self.M
+        k = math.gcd(self.N, self.M)/self.N
+        new_path = [h*self.path[i] for i in range(self.N)]
+        new_label = self.label
+
+        pmaj = 0
+        plus = 0
+        current = self.N+1
+        reading_word = []
+        contributes = {}
+        buffer = []
+        for i in range(self.N*k):
+            # Adding to buffer new labels with k multeplicity
+            new = [new_label[j] for j in range(self.N) if new_path[j] == self.N*k-i]
+            buffer = buffer + [new[floor(j/k)] for j in range(len(new)*k)]  # type: ignore
+            # Get next step
+            if current <= min(buffer):          # Starting new ascending chain
+                plus += 1
+                current = max(buffer)
+            else:                               # Continuing current ascending chain
+                current = max([w for w in buffer if w < current])
+            
+            if current not in reading_word:     # Adding pmaj if needed...
+                pmaj += plus
+                contributes = contributes | {current:plus}
+
+            for i in range(h):
+                if current in buffer:
+                    buffer.remove(current)                 # Removing h copies of current from buffer
+
+            # Writing down the new letter in reading word
             reading_word = reading_word + [current]
         if infos:
             return [pmaj,contributes,reading_word]
@@ -458,7 +498,6 @@ def qt_Polynomial_area_pmaj(set_paths,ring):           # GEN_POLY: polynomial ge
     for path in set_paths:
         poly = poly + (q**path.area())*(t**path.pmaj())
     return poly
-
 
 def to_area_pmaj_RV(self,infos = False):   # TO_AREA_PMAJ: this is the Generalized Loehr-Remmel map
     r'''
